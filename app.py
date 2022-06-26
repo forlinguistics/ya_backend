@@ -12,7 +12,9 @@ from sqlalchemy import func
 import  json
 
 
-
+"""
+function, that changes path for all element children after rebase
+"""
 def rebase_children(db, rebased_id, new_path, upd_time):
     to_rebase = db.session.query(Product).filter(Product.path.contains(rebased_id + '.'))
     for i in to_rebase:
@@ -31,22 +33,23 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 import_schema = Imports_schema()
 db.create_all(app=app)
-
-@app.route("/")
+#test function
+@app.route('/')
 def hello_world():
-    return json.dumps(hello="world")
+    return json.dumps(hello='world')
 @app.route('/imports', methods=['POST'])
 def products_import():
     try:
         import_dic = import_schema.load(request.json)
     except ValidationError as e:
         return ErrorSchema().dump({'error': 400, 'message': str(e.messages)}), 400
-    update_time = import_dic["updateDate"]
-    import_dic = import_dic["items"]
+    update_time = import_dic['updateDate']
+    import_dic = import_dic['items']
     add_order = []
     ids = {}
     p_ids = set()
     id_p_id = {}
+#   creates parent-child dictionary and checks for duplocates
     for product in import_dic:
         ids[product['id']] = product
         p_ids.add(product['parentId'])
@@ -54,7 +57,8 @@ def products_import():
             id_p_id[product['id']] = product['parentId']
         else:
             return ErrorSchema().dump({'error': 400, 'message': 'Two elements with the same id'}), 400
-    trees = id_p_id.keys() & p_ids
+    trees = id_p_id.keys() & p_ids #elements, which have parent_id in the same import
+#    determines order to add elements, so when element is added, its parent is already in database
     while (trees) != set():
         trees_c = trees.copy()
         for i in trees_c:
@@ -63,7 +67,8 @@ def products_import():
                 trees.remove(i)
     add_last = list(id_p_id.keys() - p_ids)
     add_order.extend(add_last)
-    ids_to_update_time = set()
+    ids_to_update_time = set() # to update parent categories time
+#    adds/updates elements to database
     for i in add_order:
         product = ids[i]
         path = ''
@@ -76,20 +81,20 @@ def products_import():
                 return ErrorSchema().dump({'error': 400, 'message': 'No parent id in database'}), 400
         else:
             path = product['id']
-        p_entry = Product(id=product["id"], name=product["name"], parentId=product["parentId"], type=product["type"],
-                          price=product["price"], date=update_time, path=path)
+        p_entry = Product(id=product['id'], name=product['name'], parentId=product['parentId'], type=product['type'],
+                          price=product['price'], date=update_time, path=path)
         to_update = db.session.query(Product).get(product['id'])
         if to_update != None and to_update.type.value == product['type']:
             p_entry.isupdated = True
-            if to_update.parentId != product["parentId"]:
-                rebase_children(db, product["id"], path, update_time)
+            if to_update.parentId != product['parentId']:
+                rebase_children(db, product['id'], path, update_time)
             db.session.merge(p_entry)
         elif to_update != None and to_update.type != product['type']:
             return ErrorSchema().dump({'error': 400, 'message': 'Can\'t change item type on update'}), 400
         else:
             db.session.add(p_entry)
-        upd_entry = Update(id=product["id"], name=product["name"], parentId=product["parentId"], type=product["type"],
-                           price=product["price"], date=update_time, path=path)
+        upd_entry = Update(id=product['id'], name=product['name'], parentId=product['parentId'], type=product['type'],
+                           price=product['price'], date=update_time, path=path)
         db.session.add(upd_entry)
 
     ids_to_update_time = list(ids_to_update_time - (id_p_id.keys() & p_ids))
@@ -115,12 +120,14 @@ def products_delete(item_id):
 def get_product(item_id):
     if not (is_uuid(item_id)):
         return ErrorSchema().dump({'error': 400, 'message': 'Wrong input'}), 400
+#   gets all children by looking for element id in path string, order by path, so elements are ordered by tree levels
     to_get = db.session.query(Product).filter(Product.path.contains(item_id)).order_by(Product.path.desc()).all()
     if to_get == []:
         return ErrorSchema().dump({'error': 404, 'message': 'Item not found'}), 404
     to_get = {str(i.id): row_to_dict(i) for i in to_get}
     add_order = list(to_get.keys())
     cat_prices = defaultdict(list)
+# builds tree dict for node
     for i in add_order[0:-1]:
         parent = str(to_get[i]['parentId'])
         if 'children' in to_get[parent].keys():
@@ -176,10 +183,12 @@ def stats(item_id):
     if el_type != None:
         el_type = el_type.type
     items = []
+#   gets item history list
     if el_type == 'OFFER':
         for i in q:
             items.append(row_to_dict(i))
     else:
+#   for category objets calculates mean of their children
         for i in q:
             offers = db.session.query(Update.id).filter(
                 and_(Update.path.contains(item_id + '.'), Update.date <= i.date, Update.type == 'OFFER')).all()

@@ -6,8 +6,8 @@ import enum
 db = SQLAlchemy()
 
 class Ptype(enum.Enum):
-    OFFER = "OFFER"
-    CATEGORY = "CATEGORY"
+    OFFER = 'OFFER'
+    CATEGORY = 'CATEGORY'
 
 class abs_product(db.Model):
     __abstract__=True
@@ -17,15 +17,16 @@ class abs_product(db.Model):
     path = db.Column(db.Text, index=True)
 
 class Product(abs_product):
-    __tablename__ = "products"
+    __tablename__ = 'products'
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    parentId = db.Column(UUID(as_uuid=True), db.ForeignKey("products.id", ondelete='CASCADE'))
+    parentId = db.Column(UUID(as_uuid=True), db.ForeignKey('products.id', ondelete='CASCADE'))
+    #field for quick sales lookup
     isupdated = db.Column(db.Boolean,default=False)
     date = db.Column(db.DateTime(timezone=True))
     Children = db.relationship(
         'Product',
-        cascade="all",
-        backref=db.backref("Parent", remote_side='Product.id'),
+        cascade='all',
+        backref=db.backref('Parent', remote_side='Product.id'),
     )
     def __init__(self,id,name,parentId,type,price,date,path):
         self.id = id
@@ -37,10 +38,11 @@ class Product(abs_product):
         self.path = path
 
 class Update(abs_product):
-    __tablename__ = "updates"
+    __tablename__ = 'updates'
     id = db.Column(UUID(as_uuid=True), db.ForeignKey("products.id", ondelete='CASCADE'),primary_key=True)
     date =  db.Column(db.DateTime(timezone=True),primary_key=True)
     parentId = db.Column(UUID(as_uuid=True), db.ForeignKey("products.id", ondelete='CASCADE'))
+    # field to determine if element was updated or was created to store updated path info after its parent was rebased
     rebased = db.Column(db.Boolean, default=False)
     def __init__(self,id,name,parentId,type,price,date,path):
         self.id = id

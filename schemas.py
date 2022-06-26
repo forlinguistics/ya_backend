@@ -6,14 +6,14 @@ class Item(Schema):
     name = fields.String(required=True)
     parentId = fields.String(required=False,load_default=None, allow_none=True)
     price = fields.Integer(required=False,load_default=None, allow_none=True)
-    type = fields.String(required=True, validate=OneOf(["OFFER", "CATEGORY"]))
+    type = fields.String(required=True, validate=OneOf(['OFFER', 'CATEGORY']))
 
 
 class ImportItem(Item):
     @validates_schema
     def validate_price(self, data, **kwargs):
-        if data["type"] == "CATEGORY" and not data["price"] is None:
-            raise ValidationError("price for category must be None")
+        if data['type'] == 'CATEGORY' and not data['price'] is None:
+            raise ValidationError('price for category must be None')
 
 
 class Imports_schema(Schema):
