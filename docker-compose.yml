@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  web:
+    build: ../ya_backend
+    command: python app.py run -h 0.0.0.0:8080
+    volumes:
+      - ../ya_backend:/usr/src/app/
+    ports:
+      - 8080
+    depends_on:
+      - db
+  db:
+    image: postgres:13-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=ml
+      - POSTGRES_PASSWORD=ya_project
+      - POSTGRES_DB=products
+volumes:
+  postgres_data:
